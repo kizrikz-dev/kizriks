@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stickman Fighter</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#111;color:white;font-family:Arial,sans-serif;text-align:center}
+h1{margin:15px 0 5px}
+#info{font-size:18px;margin-bottom:8px}
+canvas{display:block;margin:auto;background:linear-gradient(#72c7ff 0 70%,#63b33f 70%);border:4px solid white;border-radius:10px;max-width:95vw}
+.controls{margin:12px auto;display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+button{font-size:18px;font-weight:bold;padding:12px 18px;border:0;border-radius:10px;background:#eee;cursor:pointer}
+button:active{transform:scale(.95);background:#aaa}
+#restart{background:#ffd43b}
+.help{font-size:14px;color:#ccc;margin:8px}
+</style>
+</head>
+<body>
+<h1>🥊 STICKMAN FIGHTER</h1>
+<div id="info">❤️ HP Kamu: <span id="playerHp">100</span> &nbsp; | &nbsp; 👹 HP Musuh: <span id="enemyHp">100</span> &nbsp; | &nbsp; ⭐ Skor: <span id="score">0</span></div>
+<canvas id="game" width="900" height="500"></canvas>
+
+<div class="controls">
+  <button id="left">⬅️ Kiri</button>
+  <button id="right">Kanan ➡️</button>
+  <button id="attack">👊 SERANG</button>
+  <button id="jump">⬆️ Lompat</button>
+  <button id="restart">🔄 Restart</button>
+</div>
+<div class="help">Keyboard: A/D atau ←/→ = bergerak • W/↑/Spasi = lompat • J = serang • R = restart</div>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const W=canvas.width,H=canvas.height,ground=410;
+
+const player={
+ x:180,y:ground-90,w:40,h:90,vx:0,vy:0,
+ speed:5,jump:-13,hp:100,attack:0,cooldown:0,dir:1
+};
+const enemy={
+ x:680,y:ground-90,w:40,h:90,vx:0,vy:0,
+ hp:100,attack:0,cooldown:0,dir:-1
+};
+
+let keys={},score=0,gameOver=false,win=false,shake=0;
+const pHp=document.getElementById("playerHp");
+const eHp=document.getElementById("enemyHp");
+const scoreEl=document.getElementById("score");
+
+function reset(){
+ Object.assign(player,{x:180,y:ground-90,vx:0,vy:0,hp:100,attack:0,cooldown:0,dir:1});
+ Object.assign(enemy,{x:680,y:ground-90,vx:0,vy:0,hp:100,attack:0,cooldown:0,dir:-1});
+ score=0;gameOver=false;win=false;shake=0;updateUI();
+}
+function updateUI(){
+ pHp.textContent=Math.max(0,Math.ceil(player.hp));
+ eHp.textContent=Math.max(0,Math.ceil(enemy.hp));
+ scoreEl.textContent=score;
+}
+function jump(c){
+ if(c.y>=ground-c.h-1)c.vy=-13;
+}
+function attack(c,target,isPlayer){
+ if(c.cooldown<=0 && !gameOver){
+   c.attack=12;c.cooldown=28;
+   const range=75;
+   const facing=(target.x-c.x)*c.dir>0;
+   if(Math.abs(target.x-c.x)<range && Math.abs(target.y-c.y)<55 && facing){
+     target.hp-=isPlayer?15:10;
+     if(isPlayer){score+=10;shake=5}
+     else shake=4;
+     if(target.hp<=0){
+       if(isPlayer){score+=100;win=true}
+       else gameOver=true;
+     }
+   }
+ }
+}
+function physics(c){
+ c.y+=c.vy;c.vy+=.65;
+ if(c.y>ground-c.h){c.y=ground-c.h;c.vy=0}
+ c.x+=c.vx;
+ c.x=Math.max(25,Math.min(W-25-c.w,c.x));
+ if(c.attack>0)c.attack--;
+ if(c.cooldown>0)c.cooldown--;
+}
+function update(){
+ if(!gameOver&&!win){
+   player.vx=0;
+   if(keys["ArrowLeft"]||keys["a"]){player.vx=-player.speed;player.dir=-1}
+   if(keys["ArrowRight"]||keys["d"]){player.vx=player.speed;player.dir=1}
+   if((keys["ArrowUp"]||keys["w"]||keys[" "])&&player.y>=ground-player.h-1)jump(player);
+
+   const dx=player.x-enemy.x;
+   enemy.dir=dx>0?1:-1;
+   enemy.vx=Math.abs(dx)>65?enemy.dir*2.2:0;
+   if(Math.abs(dx)<75 && Math.abs(player.y-enemy.y)<55)attack(enemy,player,false);
+
+   physics(player);physics(enemy);
+ }
+ updateUI();
+}
+function stickman(c,bodyColor,skin="#111"){
+ const x=c.x+c.w/2,y=c.y;
+ ctx.save();
+ ctx.translate(x,y);
+ if(c.dir<0)ctx.scale(-1,1);
+ ctx.lineWidth=6;ctx.lineCap="round";ctx.strokeStyle=skin;
+ // head
+ ctx.beginPath();ctx.arc(0,14,14,0,Math.PI*2);ctx.stroke();
+ // body
+ ctx.beginPath();ctx.moveTo(0,29);ctx.lineTo(0,62);ctx.stroke();
+ // legs
+ ctx.beginPath();ctx.moveTo(0,62);ctx.lineTo(-18,88);ctx.moveTo(0,62);ctx.lineTo(18,88);ctx.stroke();
+ // arms
+ let armX=c.attack>0?32:20;
+ ctx.beginPath();ctx.moveTo(0,38);ctx.lineTo(armX,48);ctx.lineTo(armX+12,38);ctx.stroke();
+ ctx.beginPath();ctx.moveTo(0,38);ctx.lineTo(-20,50);ctx.lineTo(-30,40);ctx.stroke();
+ // body accent
+ ctx.strokeStyle=bodyColor;ctx.lineWidth=5;
+ ctx.beginPath();ctx.moveTo(-5,32);ctx.lineTo(-5,58);ctx.stroke();
+ if(c.attack>0){
+   ctx.strokeStyle="#ffd43b";ctx.lineWidth=4;
+   ctx.beginPath();ctx.arc(40,38,17,-.8,.7);ctx.stroke();
+ }
+ ctx.restore();
+}
+function draw(){
+ ctx.clearRect(0,0,W,H);
+ // clouds
+ ctx.fillStyle="rgba(255,255,255,.7)";
+ [[120,70],[300,110],[720,65]].forEach(([x,y])=>{
+   ctx.beginPath();ctx.arc(x,y,25,0,7);ctx.arc(x+28,y+5,18,0,7);ctx.arc(x-28,y+8,17,0,7);ctx.fill();
+ });
+ // ground
+ ctx.fillStyle="#4b8f2c";ctx.fillRect(0,ground,W,H-ground);
+ ctx.fillStyle="#315f1d";ctx.fillRect(0,ground,W,8);
+ stickman(player,"#2196f3");
+ stickman(enemy,"#e53935");
+
+ if(shake>0)shake--;
+ if(gameOver||win){
+   ctx.fillStyle="rgba(0,0,0,.65)";ctx.fillRect(0,0,W,H);
+   ctx.fillStyle="white";ctx.textAlign="center";
+   ctx.font="bold 54px Arial";
+   ctx.fillText(win?"🏆 KAMU MENANG!":"💀 KAMU KALAH!",W/2,210);
+   ctx.font="bold 26px Arial";
+   ctx.fillText("Tekan R atau tombol Restart untuk bermain lagi",W/2,270);
+   ctx.font="22px Arial";
+   ctx.fillText("Skor: "+score,W/2,315);
+ }
+}
+function loop(){
+ update();draw();requestAnimationFrame(loop);
+}
+function bindButton(id,key){
+ const b=document.getElementById(id);
+ ["mousedown","touchstart"].forEach(ev=>b.addEventListener(ev,e=>{e.preventDefault();keys[key]=true}));
+ ["mouseup","mouseleave","touchend"].forEach(ev=>b.addEventListener(ev,e=>{e.preventDefault();keys[key]=false}));
+}
+bindButton("left","ArrowLeft");bindButton("right","ArrowRight");
+document.getElementById("attack").addEventListener("click",()=>attack(player,enemy,true));
+document.getElementById("jump").addEventListener("click",()=>jump(player));
+document.getElementById("restart").addEventListener("click",reset);
+
+document.addEventListener("keydown",e=>{
+ keys[e.key]=true;
+ if(e.key==="j"||e.key==="J")attack(player,enemy,true);
+ if(e.key==="r"||e.key==="R")reset();
+});
+document.addEventListener("keyup",e=>keys[e.key]=false);
+
+reset();loop();
+</script>
+</body>
+</html>
